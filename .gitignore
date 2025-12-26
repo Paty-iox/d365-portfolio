@@ -1,0 +1,57 @@
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Bb]in/
+[Oo]bj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+*.rsuser
+
+# NuGet
+packages/
+*.nupkg
+
+# Node modules (for PCF)
+node_modules/
+package-lock.json
+
+# PCF build artifacts
+out/
+generated/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Environment files
+.env
+.env.local
+*.config.local
+
+# Temporary files
+*.tmp
+*.temp
+~$*
+
+# Solution packager temp
+*.data.xml.bak
+
+# Sensitive data
+**/connectionstrings.json
+**/appsettings.Development.json
