@@ -161,5 +161,6 @@ ApexClaims/
 
 ## Documentation
 
+- [Video Walkthrough](https://youtu.be/v14AGGMQdQw)
 - [Solution Architecture Diagram](./Documentation/Apex%20Claims%20Solution%20Architecture.png)
 - [Functional Design Document](./Documentation/DEMO_Apex_Claims_FDD_v1.0.pdf)
