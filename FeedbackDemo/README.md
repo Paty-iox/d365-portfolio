@@ -155,5 +155,6 @@ FeedbackDemo/
 
 ## Documentation
 
+- [Video Walkthrough](https://youtu.be/3y7FADlBmLs)
 - [Solution Architecture Diagram](./Documentation/Customer%20Feedback%20Solution%20Architecture.PNG)
 - [Functional Design Document](./Documentation/DEMO_Customer_Feedback_Analytics_FDD_v1.0.pdf)
