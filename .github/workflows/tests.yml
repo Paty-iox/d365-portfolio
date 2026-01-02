@@ -1,0 +1,52 @@
+name: Tests
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  plugin-tests:
+    name: C# Plugin Tests
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET Framework
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Restore dependencies
+        run: dotnet restore
+        working-directory: ApexClaims/Code/Plugins/ClaimGeocoder.Tests
+
+      - name: Build
+        run: dotnet build --no-restore
+        working-directory: ApexClaims/Code/Plugins/ClaimGeocoder.Tests
+
+      - name: Run tests
+        run: dotnet test --no-build --verbosity normal
+        working-directory: ApexClaims/Code/Plugins/ClaimGeocoder.Tests
+
+  function-tests:
+    name: Azure Function Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: ApexClaims/Code/AzureFunctions/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: ApexClaims/Code/AzureFunctions
+
+      - name: Run tests
+        run: npm test
+        working-directory: ApexClaims/Code/AzureFunctions
