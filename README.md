@@ -71,32 +71,41 @@ Power BI reports for business analytics and performance monitoring.
 ```
 D365-Portfolio/
 │
-├── ApexClaims/                     # Insurance claims solution
+├── ApexClaims/             →  Insurance Claims Management System
+│   │                          Fraud detection, geocoding, weather integration
+│   │
+│   │                          Tech: C# Plugins, React/TypeScript PCF,
+│   │                                Node.js Functions, Power Pages, Azure Maps
 │   ├── Code/
-│   │   ├── AzureFunctions/         # Node.js - Fraud, Geocoding, Weather
-│   │   ├── PCF/                    # React/TypeScript controls
-│   │   ├── Plugins/                # C# .NET 4.6.2 plugins
-│   │   └── WebResources/           # JavaScript form scripts
+│   │   ├── AzureFunctions/       Node.js - Fraud scoring, Geocoding, Weather API
+│   │   ├── PCF/                  React/TypeScript - Fraud Risk Gauge control
+│   │   ├── Plugins/              C# .NET 4.6.2 - ClaimGeocoder, ClaimWeather
+│   │   └── WebResources/         JavaScript - Form scripts, map integration
 │   ├── Documentation/
-│   ├── Portal/                     # Power Pages site
-│   └── Solutions/                  # Dataverse solutions
+│   ├── Portal/                   Power Pages - Customer self-service portal
+│   └── Solutions/                Dataverse solution packages
 │
-├── FeedbackDemo/                   # Customer feedback solution
+├── FeedbackDemo/           →  AI-Powered Customer Feedback Platform
+│   │                          Sentiment analysis, translation, auto-responses
+│   │
+│   │                          Tech: Azure OpenAI, Cognitive Services,
+│   │                                Logic Apps, Power Automate, Copilot Studio
 │   ├── Code/
-│   │   ├── Functions/              # Node.js AI processing
-│   │   ├── Infrastructure/         # ARM/Bicep templates
-│   │   └── LogicApps/              # Logic App definitions
+│   │   ├── Functions/            Node.js - AI processing pipeline
+│   │   ├── Infrastructure/       ARM/Bicep - Azure resource templates
+│   │   └── LogicApps/            JSON - Workflow definitions
 │   ├── Documentation/
 │   └── Solutions/
 │
-├── PBI/                            # Power BI reports
+├── PBI/                    →  Power BI Dashboards
+│   │                          Sales analytics and KPI reporting
+│   │
+│   │                          Tech: Power BI, DAX, Power Query
 │   └── Demo Commerce Growth and Performance/
 │
-├── docs/
-│   └── adr/                        # Architecture Decision Records
+├── docs/adr/               →  Architecture Decision Records
 │
-└── .github/
-    └── workflows/                  # CI/CD pipelines
+└── .github/workflows/      →  CI/CD (Tests, Plugin Builds)
 ```
 
 ## Technologies Used
