@@ -11,4 +11,5 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.CrmSdk.CoreAssemblies" Version="9.0.2.56" />
   </ItemGroup>
+
 </Project>

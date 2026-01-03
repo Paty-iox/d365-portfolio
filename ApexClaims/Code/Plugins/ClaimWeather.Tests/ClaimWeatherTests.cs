@@ -1,19 +1,18 @@
 using System;
 using Microsoft.Xrm.Sdk;
+using Microsoft.Xrm.Sdk.Query;
 using Moq;
 using Xunit;
 
 namespace ApexClaims.Plugins.Tests
 {
-    /// <summary>
-    /// Unit tests for ClaimGeocoder plugin.
-    /// Note: Retry logic (3 retries with exponential backoff) is tested via integration tests.
-    /// Transient errors that trigger retry: Timeout, ConnectFailure, NameResolutionFailure, 5xx status codes.
-    /// </summary>
-    public class ClaimGeocoderTests
+    public class ClaimWeatherTests
     {
         private const string ClaimEntityName = "new_claim";
-        private const string IncidentLocationField = "new_incidentlocation";
+        private const string IncidentLatitudeField = "new_incidentlatitude";
+        private const string IncidentLongitudeField = "new_incidentlongitude";
+        private const string IncidentDateField = "new_incidentdate";
+        private const string WeatherConditionsField = "new_weatherconditions";
 
         private Mock<IPluginExecutionContext> _contextMock;
         private Mock<IOrganizationServiceFactory> _serviceFactoryMock;
@@ -21,7 +20,7 @@ namespace ApexClaims.Plugins.Tests
         private Mock<ITracingService> _traceMock;
         private Mock<IServiceProvider> _serviceProviderMock;
 
-        public ClaimGeocoderTests()
+        public ClaimWeatherTests()
         {
             _contextMock = new Mock<IPluginExecutionContext>();
             _serviceFactoryMock = new Mock<IOrganizationServiceFactory>();
@@ -52,12 +51,12 @@ namespace ApexClaims.Plugins.Tests
             _contextMock.Setup(c => c.MessageName).Returns("Create");
             _contextMock.Setup(c => c.InputParameters).Returns(new ParameterCollection());
 
-            var plugin = new ClaimGeocoder();
+            var plugin = new ClaimWeather();
 
             // Act
             plugin.Execute(_serviceProviderMock.Object);
 
-            // Assert - no updates should be made
+            // Assert
             _serviceMock.Verify(s => s.Update(It.IsAny<Entity>()), Times.Never);
             _traceMock.Verify(t => t.Trace(It.Is<string>(msg => msg.Contains("Wrong entity")), It.IsAny<object[]>()), Times.Once);
         }
@@ -70,7 +69,7 @@ namespace ApexClaims.Plugins.Tests
             _contextMock.Setup(c => c.MessageName).Returns("Delete");
             _contextMock.Setup(c => c.InputParameters).Returns(new ParameterCollection());
 
-            var plugin = new ClaimGeocoder();
+            var plugin = new ClaimWeather();
 
             // Act
             plugin.Execute(_serviceProviderMock.Object);
@@ -88,7 +87,7 @@ namespace ApexClaims.Plugins.Tests
             _contextMock.Setup(c => c.MessageName).Returns("Create");
             _contextMock.Setup(c => c.InputParameters).Returns(new ParameterCollection());
 
-            var plugin = new ClaimGeocoder();
+            var plugin = new ClaimWeather();
 
             // Act
             plugin.Execute(_serviceProviderMock.Object);
@@ -99,10 +98,11 @@ namespace ApexClaims.Plugins.Tests
         }
 
         [Fact]
-        public void Execute_UpdateWithoutLocationChange_SkipsProcessing()
+        public void Execute_UpdateWithoutRelevantFieldChange_SkipsProcessing()
         {
             // Arrange
-            var target = new Entity(ClaimEntityName, Guid.NewGuid());
+            var claimId = Guid.NewGuid();
+            var target = new Entity(ClaimEntityName, claimId);
             target["new_someotherfield"] = "value";
 
             var inputParams = new ParameterCollection { { "Target", target } };
@@ -112,23 +112,23 @@ namespace ApexClaims.Plugins.Tests
             _contextMock.Setup(c => c.InputParameters).Returns(inputParams);
             _contextMock.Setup(c => c.UserId).Returns(Guid.NewGuid());
 
-            var plugin = new ClaimGeocoder();
+            var plugin = new ClaimWeather();
 
             // Act
             plugin.Execute(_serviceProviderMock.Object);
 
-            // Assert - no coordinate updates since location wasn't changed
+            // Assert
             _serviceMock.Verify(s => s.Update(It.IsAny<Entity>()), Times.Never);
-            _traceMock.Verify(t => t.Trace(It.Is<string>(msg => msg.Contains("not changed")), It.IsAny<object[]>()), Times.Once);
+            _traceMock.Verify(t => t.Trace(It.Is<string>(msg => msg.Contains("No relevant fields")), It.IsAny<object[]>()), Times.Once);
         }
 
         [Fact]
-        public void Execute_EmptyLocation_ClearsCoordinates()
+        public void Execute_MissingCoordinates_SkipsWeatherLookup()
         {
             // Arrange
             var claimId = Guid.NewGuid();
             var target = new Entity(ClaimEntityName, claimId);
-            target[IncidentLocationField] = "";
+            target[IncidentLatitudeField] = null;
 
             var inputParams = new ParameterCollection { { "Target", target } };
 
@@ -137,34 +137,29 @@ namespace ApexClaims.Plugins.Tests
             _contextMock.Setup(c => c.InputParameters).Returns(inputParams);
             _contextMock.Setup(c => c.UserId).Returns(Guid.NewGuid());
 
-            // Mock empty environment variables result
+            // Mock Retrieve to return claim without coordinates
+            var retrievedClaim = new Entity(ClaimEntityName, claimId);
             _serviceMock
-                .Setup(s => s.RetrieveMultiple(It.IsAny<Microsoft.Xrm.Sdk.Query.QueryBase>()))
-                .Returns(new EntityCollection());
+                .Setup(s => s.Retrieve(ClaimEntityName, claimId, It.IsAny<ColumnSet>()))
+                .Returns(retrievedClaim);
 
-            var plugin = new ClaimGeocoder();
+            var plugin = new ClaimWeather();
 
             // Act
             plugin.Execute(_serviceProviderMock.Object);
 
-            // Assert - coordinates should be cleared (set to null)
-            _serviceMock.Verify(s => s.Update(It.Is<Entity>(e =>
-                e.LogicalName == ClaimEntityName &&
-                e.Id == claimId &&
-                e.Contains("new_incidentlatitude") &&
-                e.Contains("new_incidentlongitude") &&
-                e["new_incidentlatitude"] == null &&
-                e["new_incidentlongitude"] == null
-            )), Times.Once);
+            // Assert
+            _serviceMock.Verify(s => s.Update(It.IsAny<Entity>()), Times.Never);
+            _traceMock.Verify(t => t.Trace(It.Is<string>(msg => msg.Contains("Missing coordinates")), It.IsAny<object[]>()), Times.Once);
         }
 
         [Fact]
-        public void Execute_MissingEnvironmentVariables_SkipsGeocoding()
+        public void Execute_MissingIncidentDate_SkipsWeatherLookup()
         {
             // Arrange
             var claimId = Guid.NewGuid();
             var target = new Entity(ClaimEntityName, claimId);
-            target[IncidentLocationField] = "123 Test Street, Sydney NSW";
+            target[IncidentLatitudeField] = -33.8688m;
 
             var inputParams = new ParameterCollection { { "Target", target } };
 
@@ -173,86 +168,134 @@ namespace ApexClaims.Plugins.Tests
             _contextMock.Setup(c => c.InputParameters).Returns(inputParams);
             _contextMock.Setup(c => c.UserId).Returns(Guid.NewGuid());
 
-            // Mock empty environment variables - not configured
-            _serviceMock
-                .Setup(s => s.RetrieveMultiple(It.IsAny<Microsoft.Xrm.Sdk.Query.QueryBase>()))
-                .Returns(new EntityCollection());
+            // Mock Retrieve to return claim with coordinates but no date
+            var retrievedClaim = new Entity(ClaimEntityName, claimId);
+            retrievedClaim[IncidentLatitudeField] = -33.8688m;
+            retrievedClaim[IncidentLongitudeField] = 151.2093m;
+            // No incident date
 
-            var plugin = new ClaimGeocoder();
+            _serviceMock
+                .Setup(s => s.Retrieve(ClaimEntityName, claimId, It.IsAny<ColumnSet>()))
+                .Returns(retrievedClaim);
+
+            var plugin = new ClaimWeather();
 
             // Act
             plugin.Execute(_serviceProviderMock.Object);
 
-            // Assert - should skip with message about missing config
+            // Assert
+            _serviceMock.Verify(s => s.Update(It.IsAny<Entity>()), Times.Never);
+            _traceMock.Verify(t => t.Trace(It.Is<string>(msg => msg.Contains("Missing incident date")), It.IsAny<object[]>()), Times.Once);
+        }
+
+        [Fact]
+        public void Execute_FutureIncidentDate_SkipsWeatherLookup()
+        {
+            // Arrange
+            var claimId = Guid.NewGuid();
+            var target = new Entity(ClaimEntityName, claimId);
+            target[IncidentDateField] = DateTime.UtcNow.AddDays(5);
+
+            var inputParams = new ParameterCollection { { "Target", target } };
+
+            _contextMock.Setup(c => c.PrimaryEntityName).Returns(ClaimEntityName);
+            _contextMock.Setup(c => c.MessageName).Returns("Create");
+            _contextMock.Setup(c => c.InputParameters).Returns(inputParams);
+            _contextMock.Setup(c => c.UserId).Returns(Guid.NewGuid());
+
+            // Mock Retrieve
+            var retrievedClaim = new Entity(ClaimEntityName, claimId);
+            retrievedClaim[IncidentLatitudeField] = -33.8688m;
+            retrievedClaim[IncidentLongitudeField] = 151.2093m;
+            retrievedClaim[IncidentDateField] = DateTime.UtcNow.AddDays(5);
+
+            _serviceMock
+                .Setup(s => s.Retrieve(ClaimEntityName, claimId, It.IsAny<ColumnSet>()))
+                .Returns(retrievedClaim);
+
+            var plugin = new ClaimWeather();
+
+            // Act
+            plugin.Execute(_serviceProviderMock.Object);
+
+            // Assert
+            _serviceMock.Verify(s => s.Update(It.IsAny<Entity>()), Times.Never);
+            _traceMock.Verify(t => t.Trace(It.Is<string>(msg => msg.Contains("future")), It.IsAny<object[]>()), Times.Once);
+        }
+
+        [Fact]
+        public void Execute_InvalidCoordinateRange_SkipsWeatherLookup()
+        {
+            // Arrange
+            var claimId = Guid.NewGuid();
+            var target = new Entity(ClaimEntityName, claimId);
+            target[IncidentLatitudeField] = 999m; // Invalid
+
+            var inputParams = new ParameterCollection { { "Target", target } };
+
+            _contextMock.Setup(c => c.PrimaryEntityName).Returns(ClaimEntityName);
+            _contextMock.Setup(c => c.MessageName).Returns("Create");
+            _contextMock.Setup(c => c.InputParameters).Returns(inputParams);
+            _contextMock.Setup(c => c.UserId).Returns(Guid.NewGuid());
+
+            // Mock Retrieve
+            var retrievedClaim = new Entity(ClaimEntityName, claimId);
+            retrievedClaim[IncidentLatitudeField] = 999m; // Invalid latitude
+            retrievedClaim[IncidentLongitudeField] = 151.2093m;
+            retrievedClaim[IncidentDateField] = DateTime.UtcNow.AddDays(-1);
+
+            _serviceMock
+                .Setup(s => s.Retrieve(ClaimEntityName, claimId, It.IsAny<ColumnSet>()))
+                .Returns(retrievedClaim);
+
+            var plugin = new ClaimWeather();
+
+            // Act
+            plugin.Execute(_serviceProviderMock.Object);
+
+            // Assert
+            _serviceMock.Verify(s => s.Update(It.IsAny<Entity>()), Times.Never);
+            _traceMock.Verify(t => t.Trace(It.Is<string>(msg => msg.Contains("Invalid coordinate")), It.IsAny<object[]>()), Times.Once);
+        }
+
+        [Fact]
+        public void Execute_MissingEnvironmentVariables_SkipsWeatherLookup()
+        {
+            // Arrange
+            var claimId = Guid.NewGuid();
+            var target = new Entity(ClaimEntityName, claimId);
+            target[IncidentLatitudeField] = -33.8688m;
+
+            var inputParams = new ParameterCollection { { "Target", target } };
+
+            _contextMock.Setup(c => c.PrimaryEntityName).Returns(ClaimEntityName);
+            _contextMock.Setup(c => c.MessageName).Returns("Create");
+            _contextMock.Setup(c => c.InputParameters).Returns(inputParams);
+            _contextMock.Setup(c => c.UserId).Returns(Guid.NewGuid());
+
+            // Mock Retrieve
+            var retrievedClaim = new Entity(ClaimEntityName, claimId);
+            retrievedClaim[IncidentLatitudeField] = -33.8688m;
+            retrievedClaim[IncidentLongitudeField] = 151.2093m;
+            retrievedClaim[IncidentDateField] = DateTime.UtcNow.AddDays(-1);
+
+            _serviceMock
+                .Setup(s => s.Retrieve(ClaimEntityName, claimId, It.IsAny<ColumnSet>()))
+                .Returns(retrievedClaim);
+
+            // Mock empty environment variables
+            _serviceMock
+                .Setup(s => s.RetrieveMultiple(It.IsAny<QueryBase>()))
+                .Returns(new EntityCollection());
+
+            var plugin = new ClaimWeather();
+
+            // Act
+            plugin.Execute(_serviceProviderMock.Object);
+
+            // Assert
+            _serviceMock.Verify(s => s.Update(It.IsAny<Entity>()), Times.Never);
             _traceMock.Verify(t => t.Trace(It.Is<string>(msg => msg.Contains("must be configured")), It.IsAny<object[]>()), Times.Once);
-            _serviceMock.Verify(s => s.Update(It.IsAny<Entity>()), Times.Never);
-        }
-
-        [Fact]
-        public void Execute_NullLocation_ClearsCoordinates()
-        {
-            // Arrange
-            var claimId = Guid.NewGuid();
-            var target = new Entity(ClaimEntityName, claimId);
-            target[IncidentLocationField] = null;
-
-            var inputParams = new ParameterCollection { { "Target", target } };
-
-            _contextMock.Setup(c => c.PrimaryEntityName).Returns(ClaimEntityName);
-            _contextMock.Setup(c => c.MessageName).Returns("Create");
-            _contextMock.Setup(c => c.InputParameters).Returns(inputParams);
-            _contextMock.Setup(c => c.UserId).Returns(Guid.NewGuid());
-
-            // Mock empty environment variables result
-            _serviceMock
-                .Setup(s => s.RetrieveMultiple(It.IsAny<Microsoft.Xrm.Sdk.Query.QueryBase>()))
-                .Returns(new EntityCollection());
-
-            var plugin = new ClaimGeocoder();
-
-            // Act
-            plugin.Execute(_serviceProviderMock.Object);
-
-            // Assert - coordinates should be cleared (set to null)
-            _serviceMock.Verify(s => s.Update(It.Is<Entity>(e =>
-                e.LogicalName == ClaimEntityName &&
-                e.Id == claimId &&
-                e.Contains("new_incidentlatitude") &&
-                e.Contains("new_incidentlongitude") &&
-                e["new_incidentlatitude"] == null &&
-                e["new_incidentlongitude"] == null
-            )), Times.Once);
-        }
-
-        [Fact]
-        public void Execute_WhitespaceOnlyLocation_ClearsCoordinates()
-        {
-            // Arrange
-            var claimId = Guid.NewGuid();
-            var target = new Entity(ClaimEntityName, claimId);
-            target[IncidentLocationField] = "   ";
-
-            var inputParams = new ParameterCollection { { "Target", target } };
-
-            _contextMock.Setup(c => c.PrimaryEntityName).Returns(ClaimEntityName);
-            _contextMock.Setup(c => c.MessageName).Returns("Create");
-            _contextMock.Setup(c => c.InputParameters).Returns(inputParams);
-            _contextMock.Setup(c => c.UserId).Returns(Guid.NewGuid());
-
-            _serviceMock
-                .Setup(s => s.RetrieveMultiple(It.IsAny<Microsoft.Xrm.Sdk.Query.QueryBase>()))
-                .Returns(new EntityCollection());
-
-            var plugin = new ClaimGeocoder();
-
-            // Act
-            plugin.Execute(_serviceProviderMock.Object);
-
-            // Assert - whitespace-only should also clear coordinates
-            _serviceMock.Verify(s => s.Update(It.Is<Entity>(e =>
-                e["new_incidentlatitude"] == null &&
-                e["new_incidentlongitude"] == null
-            )), Times.Once);
         }
 
         [Theory]
@@ -262,7 +305,7 @@ namespace ApexClaims.Plugins.Tests
         {
             // Arrange
             var target = new Entity(ClaimEntityName, Guid.NewGuid());
-            target[IncidentLocationField] = "Test Location";
+            target[IncidentLatitudeField] = -33.8688m;
 
             var inputParams = new ParameterCollection { { "Target", target } };
 
@@ -271,11 +314,12 @@ namespace ApexClaims.Plugins.Tests
             _contextMock.Setup(c => c.InputParameters).Returns(inputParams);
             _contextMock.Setup(c => c.UserId).Returns(Guid.NewGuid());
 
+            var retrievedClaim = new Entity(ClaimEntityName, target.Id);
             _serviceMock
-                .Setup(s => s.RetrieveMultiple(It.IsAny<Microsoft.Xrm.Sdk.Query.QueryBase>()))
-                .Returns(new EntityCollection());
+                .Setup(s => s.Retrieve(ClaimEntityName, target.Id, It.IsAny<ColumnSet>()))
+                .Returns(retrievedClaim);
 
-            var plugin = new ClaimGeocoder();
+            var plugin = new ClaimWeather();
 
             // Act
             plugin.Execute(_serviceProviderMock.Object);

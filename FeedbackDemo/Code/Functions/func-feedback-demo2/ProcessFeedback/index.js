@@ -1,6 +1,8 @@
 const https = require('https');
 const crypto = require('crypto');
 
+// TODO: add dead letter queue handling for failed messages
+
 module.exports = async function (context, mySbMsg) {
     context.log('Processing incoming feedback');
 

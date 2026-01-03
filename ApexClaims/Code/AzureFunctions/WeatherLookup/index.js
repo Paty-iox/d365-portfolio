@@ -1,5 +1,6 @@
 const https = require('https');
 
+// TODO: handle timezone offset for accurate local date matching
 const OPEN_METEO_HOST = 'archive-api.open-meteo.com';
 const API_TIMEOUT_MS = 10000;
 
@@ -52,6 +53,7 @@ function validateCoordinates(latitude, longitude) {
     return { valid: true, latitude: lat, longitude: lon };
 }
 
+// Open-Meteo sometimes omits precip for sparse stations; we return 'not available' rather than failing
 function callOpenMeteoApi(latitude, longitude, date) {
     return new Promise((resolve, reject) => {
         const params = new URLSearchParams({
@@ -121,7 +123,7 @@ function buildConditionsSummary(weatherData) {
         windSpeedKmh: Math.round(windKmh || 0), windSpeedMph: windMph
     };
 
-    const summary = `${weatherDescription}, High: ${tempMaxF}°F (${Math.round(tempMaxC)}°C), Low: ${tempMinF}°F (${Math.round(tempMinC)}°C), Wind: ${windMph} mph, Precip: ${precipIn} in`;
+    const summary = `${weatherDescription}, High: ${tempMaxF} degF (${Math.round(tempMaxC)} degC), Low: ${tempMinF} degF (${Math.round(tempMinC)} degC), Wind: ${windMph} mph, Precip: ${precipIn} in`;
 
     return { conditions: summary, details };
 }

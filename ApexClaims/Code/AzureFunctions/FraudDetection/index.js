@@ -1,5 +1,8 @@
 const { v4: uuidv4 } = require('uuid');
 
+// Fraud scoring - basic rule-based approach
+// TODO: replace with ML model if this ever goes to prod
+
 module.exports = async function (context, req) {
     const correlationId = req.headers['x-correlation-id'] || uuidv4();
 

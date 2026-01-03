@@ -17,17 +17,29 @@ jobs:
       - name: Setup .NET Framework
         uses: microsoft/setup-msbuild@v2
 
-      - name: Restore dependencies
+      - name: Restore ClaimGeocoder.Tests
         run: dotnet restore
         working-directory: ApexClaims/Code/Plugins/ClaimGeocoder.Tests
 
-      - name: Build
+      - name: Restore ClaimWeather.Tests
+        run: dotnet restore
+        working-directory: ApexClaims/Code/Plugins/ClaimWeather.Tests
+
+      - name: Build ClaimGeocoder.Tests
         run: dotnet build --no-restore
         working-directory: ApexClaims/Code/Plugins/ClaimGeocoder.Tests
 
-      - name: Run tests
+      - name: Build ClaimWeather.Tests
+        run: dotnet build --no-restore
+        working-directory: ApexClaims/Code/Plugins/ClaimWeather.Tests
+
+      - name: Run ClaimGeocoder tests
         run: dotnet test --no-build --verbosity normal
         working-directory: ApexClaims/Code/Plugins/ClaimGeocoder.Tests
+
+      - name: Run ClaimWeather tests
+        run: dotnet test --no-build --verbosity normal
+        working-directory: ApexClaims/Code/Plugins/ClaimWeather.Tests
 
   function-tests:
     name: Azure Function Tests

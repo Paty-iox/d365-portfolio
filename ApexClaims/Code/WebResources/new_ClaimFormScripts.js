@@ -1,5 +1,6 @@
 var ApexInsurance = window.ApexInsurance || {};
 
+// TODO: debounce map updates on rapid field changes
 ApexInsurance.ClaimForm = (function () {
     "use strict";
 

@@ -1,5 +1,6 @@
 const https = require('https');
 
+// TODO: add caching to reduce Azure Maps API calls
 const API_TIMEOUT_MS = 10000;
 
 function getConfidence(score) {

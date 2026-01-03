@@ -8,6 +8,7 @@ using Microsoft.Xrm.Sdk.Query;
 
 namespace ApexClaims.Plugins
 {
+    // TODO: consider batching for bulk imports
     public class ClaimGeocoder : IPlugin
     {
         private const int ApiTimeoutMs = 15000;

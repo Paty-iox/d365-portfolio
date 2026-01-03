@@ -9,6 +9,7 @@ using Microsoft.Xrm.Sdk.Query;
 
 namespace ApexClaims.Plugins
 {
+    // TODO: cache weather data for same location/date combinations
     public class ClaimWeather : IPlugin
     {
         private const int ApiTimeoutMs = 15000;
