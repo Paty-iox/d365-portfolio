@@ -12,6 +12,8 @@ A collection of end-to-end solutions demonstrating Dynamics 365, Power Platform,
 ### [Apex Claims](./ApexClaims/)
 **Insurance Claims Management System**
 
+[![Demo Video](https://img.shields.io/badge/Demo-YouTube-red?logo=youtube)](https://youtu.be/v14AGGMQdQw)
+
 An insurance claims processing solution with fraud detection, geolocation services, and weather data integration.
 
 | Component | Technology |
@@ -35,6 +37,8 @@ An insurance claims processing solution with fraud detection, geolocation servic
 ### [Feedback Demo](./FeedbackDemo/)
 **AI-Powered Customer Feedback Analytics**
 
+[![Demo Video](https://img.shields.io/badge/Demo-YouTube-red?logo=youtube)](https://youtu.be/3y7FADlBmLs)
+
 A feedback processing platform using Azure AI services for sentiment analysis, language translation, and automated response generation.
 
 | Component | Technology |
@@ -57,6 +61,8 @@ A feedback processing platform using Azure AI services for sentiment analysis, l
 
 ### [Power BI Reports](./PBI/)
 **Business Intelligence Dashboards**
+
+[![Demo Video](https://img.shields.io/badge/Demo-YouTube-red?logo=youtube)](https://youtu.be/X2voYGrieos)
 
 Power BI reports for business analytics and performance monitoring.
 
