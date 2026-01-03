@@ -14,6 +14,8 @@ namespace ApexClaims.Plugins
     public class ClaimGeocoder : IPlugin
     {
         private const int ApiTimeoutMs = 15000;
+        private const int MaxRetries = 3;
+        private const int BaseRetryDelayMs = 500;
 
         // Configuration via Dataverse Environment Variables
         // See ApexClaims README for setup instructions
@@ -151,47 +153,88 @@ namespace ApexClaims.Plugins
 
         private GeocodeApiResponse CallGeocodeApi(string apiUrl, string apiKey, string address, ITracingService trace)
         {
-            try
+            Exception lastException = null;
+
+            for (int attempt = 1; attempt <= MaxRetries; attempt++)
             {
-                var request = (HttpWebRequest)WebRequest.Create(apiUrl);
-                request.Method = "POST";
-                request.ContentType = "application/json";
-                request.Timeout = ApiTimeoutMs;
-                request.Headers.Add("x-functions-key", apiKey);
-
-                var requestBody = new GeocodeApiRequest { Address = address };
-                byte[] bodyBytes = SerializeToJson(requestBody);
-                request.ContentLength = bodyBytes.Length;
-
-                using (Stream requestStream = request.GetRequestStream())
-                    requestStream.Write(bodyBytes, 0, bodyBytes.Length);
-
-                using (var response = (HttpWebResponse)request.GetResponse())
-                using (Stream responseStream = response.GetResponseStream())
+                try
                 {
-                    trace.Trace("Response: {0}", response.StatusCode);
-                    return DeserializeFromJson<GeocodeApiResponse>(responseStream);
-                }
-            }
-            catch (WebException webEx)
-            {
-                trace.Trace("Web error: {0}", webEx.Message);
-                if (webEx.Response != null)
-                {
-                    try
+                    trace.Trace("API call attempt {0} of {1}", attempt, MaxRetries);
+
+                    var request = (HttpWebRequest)WebRequest.Create(apiUrl);
+                    request.Method = "POST";
+                    request.ContentType = "application/json";
+                    request.Timeout = ApiTimeoutMs;
+                    request.Headers.Add("x-functions-key", apiKey);
+
+                    var requestBody = new GeocodeApiRequest { Address = address };
+                    byte[] bodyBytes = SerializeToJson(requestBody);
+                    request.ContentLength = bodyBytes.Length;
+
+                    using (Stream requestStream = request.GetRequestStream())
+                        requestStream.Write(bodyBytes, 0, bodyBytes.Length);
+
+                    using (var response = (HttpWebResponse)request.GetResponse())
+                    using (Stream responseStream = response.GetResponseStream())
                     {
-                        using (Stream errorStream = webEx.Response.GetResponseStream())
-                            return DeserializeFromJson<GeocodeApiResponse>(errorStream);
+                        trace.Trace("Response: {0}", response.StatusCode);
+                        return DeserializeFromJson<GeocodeApiResponse>(responseStream);
                     }
-                    catch { }
                 }
-                return null;
+                catch (WebException webEx)
+                {
+                    lastException = webEx;
+                    trace.Trace("Web error (attempt {0}): {1}", attempt, webEx.Message);
+
+                    // Check if response contains error details
+                    if (webEx.Response != null)
+                    {
+                        try
+                        {
+                            using (Stream errorStream = webEx.Response.GetResponseStream())
+                                return DeserializeFromJson<GeocodeApiResponse>(errorStream);
+                        }
+                        catch { }
+                    }
+
+                    // Only retry on transient errors (timeout, connection issues)
+                    if (!IsTransientError(webEx))
+                        break;
+                }
+                catch (Exception ex)
+                {
+                    lastException = ex;
+                    trace.Trace("API error (attempt {0}): {1}", attempt, ex.Message);
+                }
+
+                // Exponential backoff before retry
+                if (attempt < MaxRetries)
+                {
+                    int delayMs = BaseRetryDelayMs * (int)Math.Pow(2, attempt - 1);
+                    trace.Trace("Retrying in {0}ms", delayMs);
+                    System.Threading.Thread.Sleep(delayMs);
+                }
             }
-            catch (Exception ex)
+
+            trace.Trace("All retry attempts exhausted. Last error: {0}", lastException?.Message ?? "Unknown");
+            return null;
+        }
+
+        private bool IsTransientError(WebException webEx)
+        {
+            // Retry on timeout, connection failure, or 5xx server errors
+            if (webEx.Status == WebExceptionStatus.Timeout ||
+                webEx.Status == WebExceptionStatus.ConnectFailure ||
+                webEx.Status == WebExceptionStatus.NameResolutionFailure)
+                return true;
+
+            if (webEx.Response is HttpWebResponse httpResponse)
             {
-                trace.Trace("API error: {0}", ex.Message);
-                return null;
+                int statusCode = (int)httpResponse.StatusCode;
+                return statusCode >= 500 && statusCode < 600;
             }
+
+            return false;
         }
 
         private byte[] SerializeToJson<T>(T obj)

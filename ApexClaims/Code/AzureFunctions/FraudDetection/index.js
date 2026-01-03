@@ -26,19 +26,16 @@ module.exports = async function (context, req) {
 
     context.log(`Processing - correlationId: ${correlationId}, claimType: ${claimType}`);
 
-    // Simulate processing delay (2-3 seconds)
-    const delay = 2000 + Math.random() * 1000;
-    await new Promise(resolve => setTimeout(resolve, delay));
-
     // Calculate fraud score
     let riskScore = 15; // Base score
     const riskFactors = [];
 
     // Parse dates
+    // Note: daysSinceIncident calculated from submissionDate (if provided) or current date
     const incidentDateObj = new Date(incidentDate);
-    const now = new Date();
+    const referenceDate = req.body.submissionDate ? new Date(req.body.submissionDate) : new Date();
     const dayOfWeek = incidentDateObj.getDay();
-    const daysSinceIncident = Math.floor((now - incidentDateObj) / (1000 * 60 * 60 * 24));
+    const daysSinceIncident = Math.floor((referenceDate - incidentDateObj) / (1000 * 60 * 60 * 24));
 
     // 1. Amount-based risk
     if (amount > 50000) {
